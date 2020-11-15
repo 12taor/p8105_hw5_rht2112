@@ -99,16 +99,103 @@ import one dataset
 data_1 = read_csv("./lda_data/con_01.csv")
 ```
 
-```{r error = TRUE}
+tidy dataset
+
+```{r}
 path_df = 
   tibble(
     path = list.files("lda_data")
   ) %>% 
   mutate(
     path = str_c("lda_data/", path),
-    data = map(..............))
+    data = map(path, read_csv)) %>% 
+  unnest(cols = data) %>% 
+  separate(path, into = c("file", "arm", "ID"), sep = "_") %>% 
+  select(-file) %>% 
+  mutate(
+    arm = str_replace(arm, "data/", ""),
+    ID = str_replace(ID, ".csv", ""),
+    ID = as.numeric(ID)
+  ) %>% 
+  pivot_longer(
+    cols = week_1:week_8,
+    names_to = "week",
+    names_prefix = "week_",
+    values_to = "outcome"
+  ) %>% 
+  mutate(
+    week = as.numeric(week))
 
-read_csv(path_df$path[[1]])
 ```
 
+spaghetti plot
+
+```{r}
+# how can I make the plot show all 20 people instead of just the 10 in the experimental arm?
+spaghetti <- path_df %>% 
+  ggplot(aes(x = week, y = outcome, color = arm, group = ID)) + 
+  geom_line()
+```
+
+
 ## Problem 3
+
+```{r}
+sim = function(mu, n = 30, sigma = 5) {
+  
+  sim_data = tibble(
+    x = rnorm(mean = mu, n, sd = sigma)
+  )
+  
+  sim_data %>% 
+    t.test() %>% 
+    broom::tidy() %>% 
+    select(estimate, p.value) %>% 
+    rename("mu_hat" = "estimate")
+  
+}
+
+sim_results =
+  tibble(mu = c(0, 1, 2, 3, 4, 5, 6)) %>% 
+  mutate(
+    output_lists = map(.x = mu, ~rerun(50, sim(mu = .x))),
+    estimate = map(output_lists, bind_rows)
+    ) %>% 
+  select(-output_lists)
+
+average <- function(df){
+  data = df %>% pull(1) %>% mean()
+}
+
+map(sim_results$estimate, average)
+
+```
+
+plot results
+```{r error = TRUE}
+power (){
+  
+  type_1 <- 
+    sim_results$estimate[[1]] %>% 
+    filter(p.value < 0.05)
+  
+  power = nrow(type_1)/nrow(sim_results$estimate[[1]])
+  
+}
+
+type_1 <- 
+  sim_results$estimate[[1]] %>% 
+  filter(p.value < 0.05)
+
+power = nrow(type_1)/nrow(sim_results$estimate[[1]])
+
+sim_results$estimate[[1]] %>% 
+  pull(1) %>% 
+  mean()
+
+power <- function(df){
+  data = df %>% filter(<0.05)
+
+}
+```
+
