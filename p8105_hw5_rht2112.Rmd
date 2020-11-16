@@ -91,7 +91,7 @@ results_df %>%
 ```
 
 
-## Problem 2 ideas
+## Problem 2
 
 import one dataset
 
@@ -151,7 +151,8 @@ sim = function(mu, n = 30, sigma = 5) {
     t.test() %>% 
     broom::tidy() %>% 
     select(estimate, p.value) %>% 
-    rename("mu_hat" = "estimate")
+    rename("mu_hat" = "estimate") %>% 
+    mutate(rejected = if_else(p.value < 0.05, 1, 0))
   
 }
 
@@ -163,39 +164,55 @@ sim_results =
     ) %>% 
   select(-output_lists)
 
+```
+
+calculate power:
+```{r}
+prop_reject <- function(df){
+  rejected  = (data = df) %>% pull(3) %>% sum()
+  
+  total = (data = df) %>% nrow()
+  
+  power = rejected/total
+  
+  power
+}
+
+power = tibble(
+  mu = c(0, 1, 2, 3, 4, 5, 6),
+  power = map(sim_results$estimate, prop_reject)
+) %>% 
+  unnest(cols = power) %>% 
+  ggplot(aes(x = mu, y = power)) +
+  geom_point()
+
+power
+
+```
+
+
+find average estimate of mu_hat for each dataset:
+```{r}
 average <- function(df){
   data = df %>% pull(1) %>% mean()
 }
 
-map(sim_results$estimate, average)
+mu_hat = tibble(
+  mu = c(0, 1, 2, 3, 4, 5, 6),
+  mu_hat = map(sim_results$estimate, average)
+) %>% 
+  unnest(cols = mu_hat) %>% 
+  ggplot(aes(x = mu, y = mu_hat)) +
+  geom_point()
+
+mu_hat
 
 ```
 
 plot results
 ```{r error = TRUE}
-power (){
-  
-  type_1 <- 
-    sim_results$estimate[[1]] %>% 
-    filter(p.value < 0.05)
-  
-  power = nrow(type_1)/nrow(sim_results$estimate[[1]])
-  
-}
 
-type_1 <- 
-  sim_results$estimate[[1]] %>% 
-  filter(p.value < 0.05)
 
-power = nrow(type_1)/nrow(sim_results$estimate[[1]])
 
-sim_results$estimate[[1]] %>% 
-  pull(1) %>% 
-  mean()
-
-power <- function(df){
-  data = df %>% filter(<0.05)
-
-}
 ```
 
