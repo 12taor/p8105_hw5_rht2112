@@ -9,6 +9,7 @@ output: github_document
 library(tidyverse)
 library(rvest)
 library(purrr)
+library(patchwork)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -95,13 +96,13 @@ results_df %>%
 
 import one dataset
 
-```{r}
+```{r message=FALSE}
 data_1 = read_csv("./lda_data/con_01.csv")
 ```
 
 tidy dataset
 
-```{r}
+```{r message=FALSE}
 path_df = 
   tibble(
     path = list.files("lda_data")
@@ -114,6 +115,7 @@ path_df =
   select(-file) %>% 
   mutate(
     arm = str_replace(arm, "data/", ""),
+    arm = if_else(arm == "exp", "experimental", "control"),
     ID = str_replace(ID, ".csv", ""),
     ID = as.numeric(ID)
   ) %>% 
@@ -131,12 +133,15 @@ path_df =
 spaghetti plot
 
 ```{r}
-# how can I make the plot show all 20 people instead of just the 10 in the experimental arm?
 spaghetti <- path_df %>% 
-  ggplot(aes(x = week, y = outcome, color = arm, group = ID)) + 
-  geom_line()
+  ggplot(aes(x = week, y = outcome, group = ID)) + 
+  geom_line() +
+  facet_grid(. ~arm)
+
+spaghetti
 ```
 
+While the values of the outcome for the control group remained stable over the 8 weeks of the experiment, the values of the outcome for the experimental group increased for each subject.
 
 ## Problem 3
 
@@ -164,6 +169,7 @@ sim_results =
     ) %>% 
   select(-output_lists)
 
+
 ```
 
 calculate power:
@@ -184,7 +190,10 @@ power = tibble(
 ) %>% 
   unnest(cols = power) %>% 
   ggplot(aes(x = mu, y = power)) +
-  geom_point()
+  geom_point() +
+  labs(x = "mu",
+       y = "Proportion of times null rejected")
+
 
 power
 
@@ -203,16 +212,33 @@ mu_hat = tibble(
 ) %>% 
   unnest(cols = mu_hat) %>% 
   ggplot(aes(x = mu, y = mu_hat)) +
-  geom_point()
+  geom_point() +
+  ggtitle("all samples")
 
-mu_hat
 
 ```
 
-plot results
+find average estimate of mu_hat including only samples where the null was rejected
 ```{r error = TRUE}
 
+mu_0 = sim_results$estimate[[1]] %>% filter(rejected == 1) %>% average()
+mu_1 = sim_results$estimate[[2]] %>% filter(rejected == 1) %>% average()
+mu_2 = sim_results$estimate[[3]] %>% filter(rejected == 1) %>% average()
+mu_3 = sim_results$estimate[[4]] %>% filter(rejected == 1) %>% average()
+mu_4 = sim_results$estimate[[5]] %>% filter(rejected == 1) %>% average()
+mu_5 = sim_results$estimate[[6]] %>% filter(rejected == 1) %>% average()
+mu_6 = sim_results$estimate[[7]] %>% filter(rejected == 1) %>% average()
 
+rejected =
+  tibble(mu = c(0, 1, 2, 3, 4, 5, 6),
+         mu_hat = c(mu_0, mu_1, mu_2, mu_3, mu_4, mu_5, mu_6)) %>% 
+  ggplot(aes(x = mu, y = mu_hat)) +
+  geom_point() +
+  ggtitle("samples where null was rejected")
+
+mu_hat + rejected
 
 ```
+
+For higher values of mu, the average estimated sample mean among samples where the null was rejected is very similar to to the average estimated sample mean among all samples, but this is less true at mu = 0 and mu = 1 . This is because there are fewer samples where the null rejected at low values of mu, since our null hypothesis was mu = 0. Therefore, at lower values of mu, there is more noise among samples where the null was rejected, leading to unstable estimates of of mu_hat. However, at higher values of mu, the null was rejected for most of the samples, so mu_hat could be estimated using a more of the samples, leading to more stable estimates of mu_hat, the further away mu was from zero.
 
